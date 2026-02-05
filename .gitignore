@@ -1,0 +1,27 @@
+# Augmented dataset (too large for GitHub)
+augmented_dataset/images/
+augmented_dataset/images_with_bboxes/
+augmented_dataset/labels/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
