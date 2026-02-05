@@ -1,7 +1,3 @@
-# Augmented dataset (too large for GitHub)
-augmented_dataset/images/
-augmented_dataset/images_with_bboxes/
-augmented_dataset/labels/
 
 # Python
 __pycache__/
