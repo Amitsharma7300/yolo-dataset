@@ -7,13 +7,34 @@ import base64
 import os
 from datetime import datetime
 import json
+import torch
+import time
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"], "allow_headers": "*"}})
 
-# Load model - use environment variable or default to local path
-MODEL_PATH = os.environ.get('MODEL_PATH', 'yolo26n.pt')
+# Check GPU availability
+USE_GPU = torch.cuda.is_available()
+print(f"GPU Available: {USE_GPU}")
+
+# Load model from local workspace
+MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "best.pt")
 model = YOLO(MODEL_PATH)
+
+# Warmup the model to avoid slow first inference
+print("Warming up model...")
+dummy_img = np.zeros((320, 320, 3), dtype=np.uint8)
+for _ in range(3):
+    model(dummy_img, verbose=False, imgsz=320, half=USE_GPU)
+print("Model warmed up!")
+
+@app.route('/')
+def health():
+    return jsonify({
+        'status': 'running',
+        'gpu': USE_GPU,
+        'model': 'loaded'
+    })
 
 # Class colors for drawing
 CLASS_COLORS = {
@@ -69,10 +90,6 @@ def process_detections(results, scale=1):
             })
     return detections
 
-@app.route('/api/health', methods=['GET'])
-def health():
-    return jsonify({'status': 'healthy', 'model_loaded': True})
-
 @app.route('/api/detect/base64', methods=['POST'])
 def detect_base64():
     """Detect objects from base64 image"""
@@ -119,6 +136,7 @@ def detect_base64():
 @app.route('/api/detect/frame', methods=['POST'])
 def detect_frame():
     """Fast detection for real-time video frames - optimized for speed"""
+    start_time = time.time()
     try:
         data = request.json
         image_data = data.get('image', '')
@@ -135,18 +153,25 @@ def detect_frame():
         if image is None:
             return jsonify({'success': False, 'error': 'Invalid image'}), 400
 
+        decode_time = time.time()
+
         # Resize for faster inference
         h, w = image.shape[:2]
-        scale = min(416 / w, 416 / h)
+        target_size = 320
+        scale = min(target_size / w, target_size / h)
         if scale < 1:
             new_w, new_h = int(w * scale), int(h * scale)
-            image_resized = cv2.resize(image, (new_w, new_h))
+            image_resized = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
         else:
             image_resized = image
             scale = 1
 
+        resize_time = time.time()
+
         # Run detection with optimized settings
-        results = model(image_resized, conf=0.4, verbose=False, imgsz=416)
+        results = model(image_resized, conf=0.25, verbose=False, imgsz=320, half=USE_GPU)
+
+        inference_time = time.time()
 
         # Draw detections on original image
         for result in results:
@@ -165,11 +190,14 @@ def detect_frame():
                 cv2.putText(image, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_bgr, 2)
 
         # Encode with lower quality for faster transfer
-        _, buffer = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 60])
+        _, buffer = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 50])
         result_base64 = f"data:image/jpeg;base64,{base64.b64encode(buffer).decode()}"
 
         # Get detection info
         detections = process_detections(results, scale)
+
+        total_time = time.time() - start_time
+        print(f"Frame: decode={decode_time-start_time:.3f}s, resize={resize_time-decode_time:.3f}s, inference={inference_time-resize_time:.3f}s, total={total_time:.3f}s, detections={len(detections)}")
 
         return jsonify({
             'success': True,
@@ -186,5 +214,5 @@ if __name__ == '__main__':
     print("YOLO Parts Detection Server")
     print(f"Model: {MODEL_PATH}")
     print("=" * 50)
-    port = int(os.environ.get('PORT', 8080))
+    port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False, threaded=True)

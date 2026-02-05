@@ -55,6 +55,7 @@ export default function Home() {
   const isDetectingRef = useRef<boolean>(false);
   const cameraActiveRef = useRef<boolean>(false);
   const isProcessingRef = useRef<boolean>(false);
+  const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cleanup camera on unmount
   useEffect(() => {
@@ -63,10 +64,12 @@ export default function Home() {
     };
   }, []);
 
-  // FPS counter
+  // FPS counter - only count when detecting
   useEffect(() => {
     const fpsInterval = setInterval(() => {
-      setFps(frameCountRef.current);
+      if (isDetectingRef.current) {
+        setFps(frameCountRef.current);
+      }
       frameCountRef.current = 0;
     }, 1000);
     return () => clearInterval(fpsInterval);
@@ -77,15 +80,26 @@ export default function Home() {
       setError(null);
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: 'environment'
+          width: { ideal: 480 },
+          height: { ideal: 360 },
+          facingMode: 'environment',
+          frameRate: { ideal: 30 }
         }
       });
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        // Wait for video to be ready
+        await new Promise<void>((resolve) => {
+          if (videoRef.current!.videoWidth > 0) {
+            resolve();
+          } else {
+            videoRef.current!.onloadedmetadata = () => {
+              resolve();
+            };
+          }
+        });
       }
       
       setCameraStream(stream);
@@ -98,6 +112,12 @@ export default function Home() {
   };
 
   const stopCamera = () => {
+    // Clear detection interval first
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
+    }
+    
     isDetectingRef.current = false;
     cameraActiveRef.current = false;
     
@@ -117,67 +137,78 @@ export default function Home() {
   };
 
   const captureFrame = (): string | null => {
-    if (!videoRef.current || !canvasRef.current) return null;
+    if (!videoRef.current || !canvasRef.current) {
+      return null;
+    }
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
-    if (!ctx || video.videoWidth === 0) return null;
+    if (!ctx || video.videoWidth === 0) {
+      return null;
+    }
     
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
+    // Use smaller resolution for faster transfer
+    const targetWidth = 320;
+    const scale = targetWidth / video.videoWidth;
+    canvas.width = targetWidth;
+    canvas.height = video.videoHeight * scale;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    return canvas.toDataURL('image/jpeg', 0.6);
+    return canvas.toDataURL('image/jpeg', 0.5);
   };
 
-  const runDetectionLoop = async () => {
-    while (isDetectingRef.current && cameraActiveRef.current) {
-      if (isProcessingRef.current) {
-        await new Promise(r => setTimeout(r, 50));
-        continue;
-      }
-      
-      isProcessingRef.current = true;
-      const frameData = captureFrame();
-      
-      if (frameData) {
-        try {
-          const response = await axios.post<DetectionResult>(
-            'http://localhost:5000/api/detect/frame',
-            { image: frameData },
-            { 
-              headers: { 'Content-Type': 'application/json' },
-              timeout: 5000
-            }
-          );
-          
-          if (response.data.success && isDetectingRef.current) {
-            setResultImage(response.data.result_image);
-            setDetections(response.data.detections);
-            frameCountRef.current++;
-          }
-        } catch (err) {
-          console.error('Detection error:', err);
-        }
-      }
-      
-      isProcessingRef.current = false;
-      // Small delay between frames
-      await new Promise(r => setTimeout(r, 30));
+  const processFrame = async () => {
+    if (!isDetectingRef.current || !cameraActiveRef.current || isProcessingRef.current) {
+      return;
     }
+    
+    isProcessingRef.current = true;
+    const frameData = captureFrame();
+    
+    if (frameData) {
+      try {
+        const response = await axios.post<DetectionResult>(
+          'http://localhost:5000/api/detect/frame',
+          { image: frameData },
+          { 
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 10000
+          }
+        );
+        
+        if (response.data.success && isDetectingRef.current) {
+          setResultImage(response.data.result_image);
+          setDetections(response.data.detections);
+          frameCountRef.current++;
+        }
+      } catch (err) {
+        console.error('Detection error:', err);
+      }
+    }
+    
+    isProcessingRef.current = false;
   };
 
   const startDetection = () => {
+    setFps(0);
     setIsDetecting(true);
     isDetectingRef.current = true;
     isProcessingRef.current = false;
     frameCountRef.current = 0;
-    runDetectionLoop();
+    
+    // Use interval instead of while loop for more reliable execution
+    detectionIntervalRef.current = setInterval(() => {
+      processFrame();
+    }, 50); // Process every 50ms for faster detection
   };
 
   const stopDetection = () => {
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
+    }
     setIsDetecting(false);
     isDetectingRef.current = false;
     isProcessingRef.current = false;
@@ -405,7 +436,7 @@ export default function Home() {
               <div className="bg-gray-900 rounded-xl p-4 min-h-[300px] flex items-center justify-center relative">
                 <video
                   ref={videoRef}
-                  className={`max-w-full max-h-[350px] rounded-lg ${cameraActive && !isDetecting ? '' : 'hidden'}`}
+                  className={`max-w-full max-h-[350px] rounded-lg absolute ${cameraActive && !isDetecting ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                   autoPlay
                   playsInline
                   muted
