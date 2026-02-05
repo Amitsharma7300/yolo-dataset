@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOLO Parts Detection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #1a1a2e;
+            --bg-darker: #16213e;
+            --card-bg: rgba(55, 65, 81, 0.5);
+            --yellow: #eab308;
+            --yellow-hover: #ca9a06;
+            --green: #22c55e;
+            --blue: #3b82f6;
+            --red: #ef4444;
+            --gray-light: #9ca3af;
+            --gray-dark: #374151;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to bottom, var(--bg-dark), var(--bg-darker));
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .header h1 .icon {
+            color: var(--yellow);
+            font-size: 2.5rem;
+        }
+
+        .header p {
+            color: var(--gray-light);
+            margin-top: 8px;
+        }
+
+        /* Mode Toggle */
+        .mode-toggle {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .mode-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mode-btn.active {
+            background: var(--yellow);
+            color: black;
+        }
+
+        .mode-btn:not(.active) {
+            background: var(--gray-dark);
+            color: var(--gray-light);
+        }
+
+        .mode-btn:not(.active):hover {
+            background: #4b5563;
+        }
+
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Drop Zone */
+        .drop-zone {
+            border: 2px dashed var(--gray-light);
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone:hover {
+            border-color: var(--yellow);
+            background: rgba(234, 179, 8, 0.1);
+        }
+
+        .drop-zone.active {
+            border-color: var(--yellow);
+            background: rgba(234, 179, 8, 0.2);
+        }
+
+        .drop-zone.has-image {
+            border-color: var(--green);
+        }
+
+        .drop-zone-icon {
+            font-size: 4rem;
+            color: var(--gray-light);
+            margin-bottom: 15px;
+        }
+
+        .drop-zone p {
+            color: var(--gray-light);
+        }
+
+        .drop-zone .small {
+            font-size: 0.875rem;
+            margin-top: 8px;
+        }
+
+        .drop-zone img {
+            max-height: 250px;
+            max-width: 100%;
+            border-radius: 8px;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--yellow);
+            color: black;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--yellow-hover);
+        }
+
+        .btn-primary:disabled {
+            background: var(--gray-dark);
+            color: var(--gray-light);
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--gray-dark);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn-success {
+            background: var(--green);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #16a34a;
+        }
+
+        .btn-danger {
+            background: var(--red);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        /* Camera Section */
+        .camera-section {
+            display: none;
+        }
+
+        .camera-section.active {
+            display: block;
+        }
+
+        .upload-section.active {
+            display: block;
+        }
+
+        .upload-section {
+            display: none;
+        }
+
+        .video-container {
+            position: relative;
+            background: black;
+            border-radius: 12px;
+            overflow: hidden;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #video-feed {
+            width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+        }
+
+        #camera-canvas {
+            display: none;
+        }
+
+        .fps-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--green);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .camera-placeholder {
+            color: var(--gray-light);
+            text-align: center;
+        }
+
+        .camera-placeholder .icon {
+            font-size: 4rem;
+            margin-bottom: 10px;
+        }
+
+        /* Result Section */
+        .result-container {
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        #result-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 8px;
+        }
+
+        .result-placeholder {
+            color: var(--gray-light);
+            text-align: center;
+        }
+
+        .result-placeholder .icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        /* Detections List */
+        .detections-section {
+            margin-top: 20px;
+        }
+
+        .detections-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .detections-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .detection-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 12px 16px;
+            border-radius: 10px;
+            border-left: 4px solid;
+        }
+
+        .detection-item.part1 { border-color: var(--green); }
+        .detection-item.part2 { border-color: var(--blue); }
+        .detection-item.part3 { border-color: var(--red); }
+        .detection-item.part4 { border-color: var(--yellow); }
+
+        .detection-name {
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .detection-confidence {
+            margin-left: auto;
+            font-weight: 600;
+        }
+
+        .detection-confidence.high { color: var(--green); }
+        .detection-confidence.medium { color: var(--yellow); }
+        .detection-confidence.low { color: var(--red); }
+
+        /* Error Message */
+        .error-message {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid var(--red);
+            color: var(--red);
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .error-message.visible {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--gray-dark);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.875rem;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .legend-color.part1 { background: var(--green); }
+        .legend-color.part2 { background: var(--blue); }
+        .legend-color.part3 { background: var(--red); }
+        .legend-color.part4 { background: var(--yellow); }
+
+        /* Stats */
+        .stats {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--yellow);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--gray-light);
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <span class="icon">⚡</span>
+                YOLO Parts Detection
+            </h1>
+            <p>Construction Machinery Parts Detection System</p>
+        </div>
+
+        <!-- Mode Toggle -->
+        <div class="mode-toggle">
+            <button class="mode-btn active" id="upload-mode-btn" onclick="switchMode('upload')">
+                📤 Upload Image
+            </button>
+            <button class="mode-btn" id="camera-mode-btn" onclick="switchMode('camera')">
+                📹 Real-Time Camera
+            </button>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Left Panel -->
+            <div class="card">
+                <!-- Upload Section -->
+                <div class="upload-section active" id="upload-section">
+                    <div class="card-title">
+                        📤 Upload Image
+                    </div>
+                    
+                    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+                        <input type="file" id="file-input" accept="image/*" onchange="handleFileSelect(event)">
+                        <div id="drop-zone-content">
+                            <div class="drop-zone-icon">📷</div>
+                            <p>Drag & drop an image here, or click to select</p>
+                            <p class="small">Supports: JPG, PNG, WEBP</p>
+                        </div>
+                        <img id="preview-image" style="display: none;">
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-primary" id="detect-btn" onclick="detectObjects()" disabled>
+                            <span id="detect-btn-text">⚡ Detect Parts</span>
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetUpload()">
+                            Reset
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Camera Section -->
+                <div class="camera-section" id="camera-section">
+                    <div class="card-title">
+                        📹 Real-Time Camera
+                        <span class="fps-badge" id="fps-badge" style="display: none;">0 FPS</span>
+                    </div>
+                    
+                    <div class="video-container">
+                        <video id="video-feed" autoplay playsinline></video>
+                        <canvas id="camera-canvas"></canvas>
+                        <div class="camera-placeholder" id="camera-placeholder">
+                            <div class="icon">📹</div>
+                            <p>Click "Start Camera" to begin</p>
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-success" id="start-camera-btn" onclick="startCamera()">
+                            ▶️ Start Camera
+                        </button>
+                        <button class="btn btn-danger" id="stop-camera-btn" onclick="stopCamera()" style="display: none;">
+                            ⏹️ Stop Camera
+                        </button>
+                        <button class="btn btn-primary" id="start-detection-btn" onclick="startDetection()" style="display: none;">
+                            ⚡ Start Detection
+                        </button>
+                        <button class="btn btn-secondary" id="stop-detection-btn" onclick="stopDetection()" style="display: none;">
+                            ⏸️ Stop Detection
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Error Message -->
+                <div class="error-message" id="error-message">
+                    <span>❌</span>
+                    <span id="error-text"></span>
+                </div>
+            </div>
+
+            <!-- Right Panel - Results -->
+            <div class="card">
+                <div class="card-title">
+                    🎯 Detection Results
+                </div>
+
+                <div class="result-container" id="result-container">
+                    <div class="result-placeholder" id="result-placeholder">
+                        <div class="icon">🖼️</div>
+                        <p>Results will appear here</p>
+                    </div>
+                    <img id="result-image" style="display: none;">
+                </div>
+
+                <!-- Stats -->
+                <div class="stats" id="stats-section" style="display: none;">
+                    <div class="stat-item">
+                        <div class="stat-value" id="total-detections">0</div>
+                        <div class="stat-label">Total Detections</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="avg-confidence">0%</div>
+                        <div class="stat-label">Avg Confidence</div>
+                    </div>
+                </div>
+
+                <!-- Detections List -->
+                <div class="detections-section" id="detections-section" style="display: none;">
+                    <div class="detections-title">
+                        📋 Detected Parts
+                    </div>
+                    <div class="detections-list" id="detections-list">
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color part1"></div>
+                        <span>Part 1</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color part2"></div>
+                        <span>Part 2</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color part3"></div>
+                        <span>Part 3</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color part4"></div>
+                        <span>Part 4</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API URL
+        const API_URL = 'http://localhost:5000';
+
+        // State
+        let selectedImage = null;
+        let cameraStream = null;
+        let isDetecting = false;
+        let frameCount = 0;
+        let lastFpsUpdate = Date.now();
+
+        // DOM Elements
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const previewImage = document.getElementById('preview-image');
+        const dropZoneContent = document.getElementById('drop-zone-content');
+        const detectBtn = document.getElementById('detect-btn');
+        const detectBtnText = document.getElementById('detect-btn-text');
+        const resultImage = document.getElementById('result-image');
+        const resultPlaceholder = document.getElementById('result-placeholder');
+        const errorMessage = document.getElementById('error-message');
+        const errorText = document.getElementById('error-text');
+        const videoFeed = document.getElementById('video-feed');
+        const cameraCanvas = document.getElementById('camera-canvas');
+        const cameraPlaceholder = document.getElementById('camera-placeholder');
+        const fpsBadge = document.getElementById('fps-badge');
+        const statsSection = document.getElementById('stats-section');
+        const detectionsSection = document.getElementById('detections-section');
+        const detectionsList = document.getElementById('detections-list');
+        const totalDetections = document.getElementById('total-detections');
+        const avgConfidence = document.getElementById('avg-confidence');
+
+        // Drag and Drop handlers
+        dropZone.addEventListener('dragenter', handleDragEnter);
+        dropZone.addEventListener('dragover', handleDragOver);
+        dropZone.addEventListener('dragleave', handleDragLeave);
+        dropZone.addEventListener('drop', handleDrop);
+
+        function handleDragEnter(e) {
+            e.preventDefault();
+            dropZone.classList.add('active');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            dropZone.classList.remove('active');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            dropZone.classList.remove('active');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showError('Please upload an image file');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                selectedImage = e.target.result;
+                previewImage.src = selectedImage;
+                previewImage.style.display = 'block';
+                dropZoneContent.style.display = 'none';
+                dropZone.classList.add('has-image');
+                detectBtn.disabled = false;
+                hideError();
+                clearResults();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function detectObjects() {
+            if (!selectedImage) return;
+
+            detectBtn.disabled = true;
+            detectBtnText.innerHTML = '<span class="spinner"></span> Detecting...';
+            hideError();
+
+            try {
+                const response = await fetch(`${API_URL}/api/detect/base64`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: selectedImage })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showResults(data.result_image, data.detections);
+                } else {
+                    showError(data.error || 'Detection failed');
+                }
+            } catch (err) {
+                showError('Failed to connect to server. Make sure the backend is running.');
+            } finally {
+                detectBtn.disabled = false;
+                detectBtnText.innerHTML = '⚡ Detect Parts';
+            }
+        }
+
+        function showResults(image, detections) {
+            resultImage.src = image;
+            resultImage.style.display = 'block';
+            resultPlaceholder.style.display = 'none';
+            
+            updateDetectionsList(detections);
+        }
+
+        function updateDetectionsList(detections) {
+            detectionsList.innerHTML = '';
+            
+            if (detections.length === 0) {
+                statsSection.style.display = 'none';
+                detectionsSection.style.display = 'none';
+                return;
+            }
+
+            statsSection.style.display = 'flex';
+            detectionsSection.style.display = 'block';
+
+            totalDetections.textContent = detections.length;
+            
+            const avgConf = detections.reduce((sum, d) => sum + d.confidence, 0) / detections.length;
+            avgConfidence.textContent = avgConf.toFixed(1) + '%';
+
+            detections.forEach(detection => {
+                const item = document.createElement('div');
+                item.className = `detection-item ${detection.class_name}`;
+                
+                const confClass = detection.confidence >= 80 ? 'high' : detection.confidence >= 50 ? 'medium' : 'low';
+                
+                item.innerHTML = `
+                    <span class="detection-name">${detection.class_name}</span>
+                    <span>Size: ${detection.bbox.width}x${detection.bbox.height}</span>
+                    <span class="detection-confidence ${confClass}">${detection.confidence.toFixed(1)}%</span>
+                `;
+                
+                detectionsList.appendChild(item);
+            });
+        }
+
+        function clearResults() {
+            resultImage.style.display = 'none';
+            resultPlaceholder.style.display = 'flex';
+            statsSection.style.display = 'none';
+            detectionsSection.style.display = 'none';
+            detectionsList.innerHTML = '';
+        }
+
+        function resetUpload() {
+            selectedImage = null;
+            fileInput.value = '';
+            previewImage.style.display = 'none';
+            previewImage.src = '';
+            dropZoneContent.style.display = 'block';
+            dropZone.classList.remove('has-image');
+            detectBtn.disabled = true;
+            hideError();
+            clearResults();
+        }
+
+        function showError(message) {
+            errorText.textContent = message;
+            errorMessage.classList.add('visible');
+        }
+
+        function hideError() {
+            errorMessage.classList.remove('visible');
+        }
+
+        // Mode switching
+        function switchMode(mode) {
+            const uploadSection = document.getElementById('upload-section');
+            const cameraSection = document.getElementById('camera-section');
+            const uploadBtn = document.getElementById('upload-mode-btn');
+            const cameraBtn = document.getElementById('camera-mode-btn');
+
+            if (mode === 'upload') {
+                stopCamera();
+                uploadSection.classList.add('active');
+                cameraSection.classList.remove('active');
+                uploadBtn.classList.add('active');
+                cameraBtn.classList.remove('active');
+            } else {
+                resetUpload();
+                uploadSection.classList.remove('active');
+                cameraSection.classList.add('active');
+                uploadBtn.classList.remove('active');
+                cameraBtn.classList.add('active');
+            }
+            
+            clearResults();
+            hideError();
+        }
+
+        // Camera functions
+        async function startCamera() {
+            try {
+                hideError();
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'environment'
+                    }
+                });
+
+                videoFeed.srcObject = cameraStream;
+                cameraPlaceholder.style.display = 'none';
+                videoFeed.style.display = 'block';
+
+                document.getElementById('start-camera-btn').style.display = 'none';
+                document.getElementById('stop-camera-btn').style.display = 'flex';
+                document.getElementById('start-detection-btn').style.display = 'flex';
+            } catch (err) {
+                showError('Failed to access camera. Please allow camera permissions.');
+            }
+        }
+
+        function stopCamera() {
+            stopDetection();
+            
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+
+            videoFeed.srcObject = null;
+            videoFeed.style.display = 'none';
+            cameraPlaceholder.style.display = 'flex';
+
+            document.getElementById('start-camera-btn').style.display = 'flex';
+            document.getElementById('stop-camera-btn').style.display = 'none';
+            document.getElementById('start-detection-btn').style.display = 'none';
+            document.getElementById('stop-detection-btn').style.display = 'none';
+            fpsBadge.style.display = 'none';
+            
+            clearResults();
+        }
+
+        function captureFrame() {
+            if (!videoFeed.videoWidth) return null;
+
+            cameraCanvas.width = videoFeed.videoWidth;
+            cameraCanvas.height = videoFeed.videoHeight;
+            const ctx = cameraCanvas.getContext('2d');
+            ctx.drawImage(videoFeed, 0, 0);
+
+            return cameraCanvas.toDataURL('image/jpeg', 0.6);
+        }
+
+        async function startDetection() {
+            isDetecting = true;
+            frameCount = 0;
+            lastFpsUpdate = Date.now();
+
+            document.getElementById('start-detection-btn').style.display = 'none';
+            document.getElementById('stop-detection-btn').style.display = 'flex';
+            fpsBadge.style.display = 'block';
+
+            runDetectionLoop();
+        }
+
+        function stopDetection() {
+            isDetecting = false;
+            document.getElementById('start-detection-btn').style.display = 'flex';
+            document.getElementById('stop-detection-btn').style.display = 'none';
+            fpsBadge.style.display = 'none';
+        }
+
+        async function runDetectionLoop() {
+            while (isDetecting && cameraStream) {
+                const frameData = captureFrame();
+                
+                if (frameData) {
+                    try {
+                        const response = await fetch(`${API_URL}/api/detect/frame`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ image: frameData })
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success && isDetecting) {
+                            showResults(data.result_image, data.detections);
+                            frameCount++;
+
+                            // Update FPS
+                            const now = Date.now();
+                            if (now - lastFpsUpdate >= 1000) {
+                                fpsBadge.textContent = frameCount + ' FPS';
+                                frameCount = 0;
+                                lastFpsUpdate = now;
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Detection error:', err);
+                    }
+                }
+
+                // Small delay between frames
+                await new Promise(r => setTimeout(r, 30));
+            }
+        }
+    </script>
+</body>
+</html>
