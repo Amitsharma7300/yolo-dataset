@@ -86,7 +86,7 @@ export default function Home() {
           frameRate: { ideal: 30 }
         }
       });
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
@@ -101,7 +101,7 @@ export default function Home() {
           }
         });
       }
-      
+
       setCameraStream(stream);
       setCameraActive(true);
       cameraActiveRef.current = true;
@@ -117,19 +117,19 @@ export default function Home() {
       clearInterval(detectionIntervalRef.current);
       detectionIntervalRef.current = null;
     }
-    
+
     isDetectingRef.current = false;
     cameraActiveRef.current = false;
-    
+
     if (cameraStream) {
       cameraStream.getTracks().forEach(track => track.stop());
       setCameraStream(null);
     }
-    
+
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-    
+
     setCameraActive(false);
     setIsDetecting(false);
     setResultImage(null);
@@ -140,22 +140,22 @@ export default function Home() {
     if (!videoRef.current || !canvasRef.current) {
       return null;
     }
-    
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    
+
     if (!ctx || video.videoWidth === 0) {
       return null;
     }
-    
+
     // Use smaller resolution for faster transfer
     const targetWidth = 320;
     const scale = targetWidth / video.videoWidth;
     canvas.width = targetWidth;
     canvas.height = video.videoHeight * scale;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
+
     return canvas.toDataURL('image/jpeg', 0.5);
   };
 
@@ -163,21 +163,21 @@ export default function Home() {
     if (!isDetectingRef.current || !cameraActiveRef.current || isProcessingRef.current) {
       return;
     }
-    
+
     isProcessingRef.current = true;
     const frameData = captureFrame();
-    
+
     if (frameData) {
       try {
         const response = await axios.post<DetectionResult>(
-          'http://localhost:5000/api/detect/frame',
+          '/api/detect/frame',
           { image: frameData },
-          { 
+          {
             headers: { 'Content-Type': 'application/json' },
             timeout: 10000
           }
         );
-        
+
         if (response.data.success && isDetectingRef.current) {
           setResultImage(response.data.result_image);
           setDetections(response.data.detections);
@@ -187,7 +187,7 @@ export default function Home() {
         console.error('Detection error:', err);
       }
     }
-    
+
     isProcessingRef.current = false;
   };
 
@@ -197,7 +197,7 @@ export default function Home() {
     isDetectingRef.current = true;
     isProcessingRef.current = false;
     frameCountRef.current = 0;
-    
+
     // Use interval instead of while loop for more reliable execution
     detectionIntervalRef.current = setInterval(() => {
       processFrame();
@@ -239,7 +239,7 @@ export default function Home() {
       setError('Please upload an image file');
       return;
     }
-    
+
     const reader = new FileReader();
     reader.onload = (e) => {
       setSelectedImage(e.target?.result as string);
@@ -258,17 +258,17 @@ export default function Home() {
 
   const detectObjects = async () => {
     if (!selectedImage) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await axios.post<DetectionResult>(
-        'http://localhost:5000/api/detect/base64',
+        '/api/detect/base64',
         { image: selectedImage },
         { headers: { 'Content-Type': 'application/json' } }
       );
-      
+
       if (response.data.success) {
         setResultImage(response.data.result_image);
         setDetections(response.data.detections);
@@ -352,7 +352,7 @@ export default function Home() {
                 <Upload className="w-5 h-5" />
                 Upload Image
               </h2>
-              
+
               {/* Drop Zone */}
               <div
                 className={`drop-zone ${dragActive ? 'active' : ''} ${selectedImage ? 'border-green-500' : ''}`}
@@ -369,7 +369,7 @@ export default function Home() {
                   onChange={handleFileChange}
                   className="hidden"
                 />
-                
+
                 {selectedImage ? (
                   <div className="relative">
                     <img
@@ -411,7 +411,7 @@ export default function Home() {
                     </>
                   )}
                 </button>
-                
+
                 <button
                   onClick={resetAll}
                   className="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-xl transition-all"
@@ -431,7 +431,7 @@ export default function Home() {
                   </span>
                 )}
               </h2>
-              
+
               {/* Camera View */}
               <div className="bg-gray-900 rounded-xl p-4 min-h-[300px] flex items-center justify-center relative">
                 <video
@@ -442,7 +442,7 @@ export default function Home() {
                   muted
                 />
                 <canvas ref={canvasRef} className="hidden" />
-                
+
                 {!cameraActive && (
                   <div className="text-center text-gray-500">
                     <VideoOff className="w-16 h-16 mx-auto mb-4 opacity-50" />
@@ -450,7 +450,7 @@ export default function Home() {
                     <p className="text-sm mt-2">Click &quot;Start Camera&quot; to begin</p>
                   </div>
                 )}
-                
+
                 {cameraActive && isDetecting && resultImage && (
                   <img
                     src={resultImage}
@@ -458,7 +458,7 @@ export default function Home() {
                     className="max-w-full max-h-[350px] rounded-lg"
                   />
                 )}
-                
+
                 {cameraActive && isDetecting && !resultImage && (
                   <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80 rounded-xl">
                     <Loader2 className="w-10 h-10 animate-spin text-yellow-400" />
@@ -522,7 +522,7 @@ export default function Home() {
             <CheckCircle className="w-5 h-5" />
             Detection Results
           </h2>
-          
+
           {/* Result Image */}
           {mode === 'upload' && (
             <div className="bg-gray-900 rounded-xl p-4 min-h-[300px] flex items-center justify-center">
@@ -549,7 +549,7 @@ export default function Home() {
                 <span className="text-sm text-gray-400">Live</span>
               )}
             </h3>
-            
+
             {detections.length > 0 ? (
               <div className="space-y-2 max-h-[400px] overflow-y-auto">
                 {detections.map((det, idx) => (
