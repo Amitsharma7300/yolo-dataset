@@ -326,6 +326,62 @@
             margin-bottom: 10px;
         }
 
+        /* Part Counts Section - NEW */
+        .part-counts-section {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .part-counts-section.visible {
+            display: block;
+        }
+
+        .part-counts-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .part-counts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .part-count-card {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 16px;
+            border-radius: 12px;
+            border-left: 4px solid;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .part-count-card.part1 { border-color: var(--green); }
+        .part-count-card.part2 { border-color: var(--blue); }
+        .part-count-card.part3 { border-color: var(--red); }
+        .part-count-card.part4 { border-color: var(--yellow); }
+
+        .part-count-label {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+
+        .part-count-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .part-count-value.part1 { color: var(--green); }
+        .part-count-value.part2 { color: var(--blue); }
+        .part-count-value.part3 { color: var(--red); }
+        .part-count-value.part4 { color: var(--yellow); }
+
         /* Detections List */
         .detections-section {
             margin-top: 20px;
@@ -580,6 +636,31 @@
                     </div>
                 </div>
 
+                <!-- Part Counts Section - NEW -->
+                <div class="part-counts-section" id="part-counts-section">
+                    <div class="part-counts-title">
+                        🔢 Parts Count
+                    </div>
+                    <div class="part-counts-grid" id="part-counts-grid">
+                        <div class="part-count-card part1">
+                            <span class="part-count-label">Part 1</span>
+                            <span class="part-count-value part1" id="count-part1">0</span>
+                        </div>
+                        <div class="part-count-card part2">
+                            <span class="part-count-label">Part 2</span>
+                            <span class="part-count-value part2" id="count-part2">0</span>
+                        </div>
+                        <div class="part-count-card part3">
+                            <span class="part-count-label">Part 3</span>
+                            <span class="part-count-value part3" id="count-part3">0</span>
+                        </div>
+                        <div class="part-count-card part4">
+                            <span class="part-count-label">Part 4</span>
+                            <span class="part-count-value part4" id="count-part4">0</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Detections List -->
                 <div class="detections-section" id="detections-section" style="display: none;">
                     <div class="detections-title">
@@ -613,7 +694,7 @@
     </div>
 
     <script>
-        // API URL
+        // API URL - Use empty string for Vercel (proxied via vercel.json)
         const API_URL = '';
 
         // State
@@ -643,6 +724,7 @@
         const detectionsList = document.getElementById('detections-list');
         const totalDetections = document.getElementById('total-detections');
         const avgConfidence = document.getElementById('avg-confidence');
+        const partCountsSection = document.getElementById('part-counts-section');
 
         // Drag and Drop handlers
         dropZone.addEventListener('dragenter', handleDragEnter);
@@ -718,7 +800,7 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showResults(data.result_image, data.detections);
+                    showResults(data.result_image, data.detections, data.part_counts);
                 } else {
                     showError(data.error || 'Detection failed');
                 }
@@ -730,12 +812,29 @@
             }
         }
 
-        function showResults(image, detections) {
+        function showResults(image, detections, partCounts) {
             resultImage.src = image;
             resultImage.style.display = 'block';
             resultPlaceholder.style.display = 'none';
 
+            updatePartCounts(partCounts || {});
             updateDetectionsList(detections);
+        }
+
+        function updatePartCounts(partCounts) {
+            // Update count displays
+            document.getElementById('count-part1').textContent = partCounts['part1'] || 0;
+            document.getElementById('count-part2').textContent = partCounts['part2'] || 0;
+            document.getElementById('count-part3').textContent = partCounts['part3'] || 0;
+            document.getElementById('count-part4').textContent = partCounts['part4'] || 0;
+
+            // Show the section if there are any detections
+            const hasDetections = Object.values(partCounts).some(count => count > 0);
+            if (hasDetections) {
+                partCountsSection.classList.add('visible');
+            } else {
+                partCountsSection.classList.remove('visible');
+            }
         }
 
         function updateDetectionsList(detections) {
@@ -776,7 +875,14 @@
             resultPlaceholder.style.display = 'flex';
             statsSection.style.display = 'none';
             detectionsSection.style.display = 'none';
+            partCountsSection.classList.remove('visible');
             detectionsList.innerHTML = '';
+
+            // Reset counts
+            document.getElementById('count-part1').textContent = '0';
+            document.getElementById('count-part2').textContent = '0';
+            document.getElementById('count-part3').textContent = '0';
+            document.getElementById('count-part4').textContent = '0';
         }
 
         function resetUpload() {
@@ -915,7 +1021,7 @@
                         const data = await response.json();
 
                         if (data.success && isDetecting) {
-                            showResults(data.result_image, data.detections);
+                            showResults(data.result_image, data.detections, data.part_counts);
                             frameCount++;
 
                             // Update FPS

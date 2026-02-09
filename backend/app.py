@@ -9,6 +9,7 @@ from datetime import datetime
 import json
 import torch
 import time
+from collections import Counter
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"], "allow_headers": "*"}})
@@ -75,20 +76,32 @@ def draw_detections(image, results):
 def process_detections(results, scale=1):
     """Extract detection info from results"""
     detections = []
+    class_counts = Counter()
+
     for result in results:
         boxes = result.boxes
         for box in boxes:
             x1, y1, x2, y2 = map(lambda x: int(x / scale), box.xyxy[0].tolist())
+            class_id = int(box.cls[0])
+            class_name = CLASS_NAMES[class_id]
+
+            # Count each part type
+            class_counts[class_name] += 1
+
             detections.append({
-                'class_id': int(box.cls[0]),
-                'class_name': CLASS_NAMES[int(box.cls[0])],
+                'class_id': class_id,
+                'class_name': class_name,
                 'confidence': round(float(box.conf[0]) * 100, 1),
                 'bbox': {
                     'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2,
                     'width': x2 - x1, 'height': y2 - y1
                 }
             })
-    return detections
+
+    # Convert Counter to dict
+    part_counts = dict(class_counts)
+
+    return detections, part_counts
 
 @app.route('/api/detect/base64', methods=['POST'])
 def detect_base64():
@@ -119,13 +132,14 @@ def detect_base64():
         _, buffer = cv2.imencode('.jpg', result_image, [cv2.IMWRITE_JPEG_QUALITY, 90])
         result_base64 = f"data:image/jpeg;base64,{base64.b64encode(buffer).decode()}"
 
-        # Get detection info
-        detections = process_detections(results)
+        # Get detection info with counts
+        detections, part_counts = process_detections(results)
 
         return jsonify({
             'success': True,
             'detections': detections,
             'total_detections': len(detections),
+            'part_counts': part_counts,  # NEW: Part counts by type
             'result_image': result_base64,
             'timestamp': datetime.now().isoformat()
         })
@@ -193,8 +207,8 @@ def detect_frame():
         _, buffer = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 50])
         result_base64 = f"data:image/jpeg;base64,{base64.b64encode(buffer).decode()}"
 
-        # Get detection info
-        detections = process_detections(results, scale)
+        # Get detection info with counts
+        detections, part_counts = process_detections(results, scale)
 
         total_time = time.time() - start_time
         print(f"Frame: decode={decode_time-start_time:.3f}s, resize={resize_time-decode_time:.3f}s, inference={inference_time-resize_time:.3f}s, total={total_time:.3f}s, detections={len(detections)}")
@@ -203,6 +217,7 @@ def detect_frame():
             'success': True,
             'detections': detections,
             'total_detections': len(detections),
+            'part_counts': part_counts,  # NEW: Part counts by type
             'result_image': result_base64
         })
 
@@ -214,5 +229,5 @@ if __name__ == '__main__':
     print("YOLO Parts Detection Server")
     print(f"Model: {MODEL_PATH}")
     print("=" * 50)
-    port = int(os.environ.get('PORT', 8080))
+    port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
