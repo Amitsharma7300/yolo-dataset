@@ -22,6 +22,7 @@ interface DetectionResult {
   success: boolean;
   detections: Detection[];
   total_detections: number;
+  part_counts: { [key: string]: number };
   result_image: string;
   timestamp?: string;
 }
@@ -38,6 +39,7 @@ export default function Home() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [detections, setDetections] = useState<Detection[]>([]);
+  const [partCounts, setPartCounts] = useState<{ [key: string]: number }>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -134,6 +136,7 @@ export default function Home() {
     setIsDetecting(false);
     setResultImage(null);
     setDetections([]);
+    setPartCounts({});
   };
 
   const captureFrame = (): string | null => {
@@ -181,6 +184,7 @@ export default function Home() {
         if (response.data.success && isDetectingRef.current) {
           setResultImage(response.data.result_image);
           setDetections(response.data.detections);
+          setPartCounts(response.data.part_counts || {});
           frameCountRef.current++;
         }
       } catch (err) {
@@ -272,6 +276,7 @@ export default function Home() {
       if (response.data.success) {
         setResultImage(response.data.result_image);
         setDetections(response.data.detections);
+        setPartCounts(response.data.part_counts || {});
       } else {
         setError('Detection failed');
       }
@@ -286,6 +291,7 @@ export default function Home() {
     setSelectedImage(null);
     setResultImage(null);
     setDetections([]);
+    setPartCounts({});
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -541,10 +547,42 @@ export default function Home() {
             </div>
           )}
 
+          {/* Part Counts Summary */}
+          {detections.length > 0 && (
+            <div className={mode === 'camera' ? 'mb-4' : 'mt-6 mb-4'}>
+              <h3 className="text-lg font-semibold mb-3">Part Counts</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(CLASS_COLORS).map(([name, color]) => (
+                  <div
+                    key={name}
+                    className="flex items-center justify-between bg-gray-900 rounded-lg p-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-4 h-4 rounded"
+                        style={{ backgroundColor: color }}
+                      />
+                      <span className="font-medium capitalize">{name}</span>
+                    </div>
+                    <span
+                      className="font-bold text-lg px-3 py-1 rounded-full"
+                      style={{
+                        backgroundColor: `${color}20`,
+                        color: color,
+                      }}
+                    >
+                      {partCounts[name] || 0}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Detection Stats */}
-          <div className={mode === 'camera' ? '' : 'mt-6'}>
+          <div className={mode === 'camera' ? '' : 'mt-4'}>
             <h3 className="text-lg font-semibold mb-3 flex items-center justify-between">
-              <span>Detected Parts ({detections.length})</span>
+              <span>Detection Details ({detections.length})</span>
               {mode === 'camera' && isDetecting && (
                 <span className="text-sm text-gray-400">Live</span>
               )}
