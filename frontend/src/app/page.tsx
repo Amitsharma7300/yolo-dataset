@@ -313,7 +313,7 @@ export default function Home() {
         <div className="flex items-center justify-center gap-3 mb-2">
           <Zap className="w-10 h-10 text-yellow-400" />
           <h1 className="text-4xl font-bold text-white">
-            YOLO Parts Detection
+            machinary Parts Detection
           </h1>
         </div>
         <p className="text-center text-gray-400">
