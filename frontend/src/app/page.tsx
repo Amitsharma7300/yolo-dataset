@@ -654,7 +654,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="max-w-6xl mx-auto mt-8 text-center text-gray-500 text-sm">
-        <p>Powered by YOLOv8 • Flask Backend • Next.js Frontend • Real-Time Detection</p>
+        <p>Powered by metic.ai • Real-Time Detection</p>
       </footer>
     </main>
   );
